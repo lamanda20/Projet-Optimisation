@@ -266,72 +266,6 @@ def validate_inputs(
     return None
 
 
-def main(argv: Optional[List[str]] = None):
-    p = argparse.ArgumentParser(description="Compute pickup schedule from trajet and affectations (Task3B)")
-    p.add_argument("--trajet-file", help="JSON file with trajet_ordre (list)")
-    p.add_argument("--affect-file", help="JSON file with affectations_par_point (dict)")
-    p.add_argument("--times-file", help="JSON file with TEMPS_TRAJET_MIN (nested dict)")
-    p.add_argument("--start-time", default="08:00", help="Start time (HH:MM or ISO)")
-    p.add_argument("--stop-min", type=int, default=1, help="Stop time per passenger in minutes")
-    p.add_argument("--default-travel-min", type=int, default=None, help="Fallback travel minutes if missing")
-    p.add_argument("--lenient", action="store_true", help="Lenient mode: clamp over-alighting and warn instead of error")
-    p.add_argument("--output-csv", help="Optional path to write CSV output")
-    p.add_argument("--demo", action="store_true", help="Run built-in demo")
-    args = p.parse_args(argv)
-
-    if args.demo:
-        trajet = ["Depart", "R3", "R1", "R5"]
-        affect = {
-            "R3": ["Alice", "Charlie"],
-            "R1": ["Bob"],
-            "R5": ["Diane", "Eve"],
-        }
-        temps = {
-            "Depart": {"R3": 5},
-            "R3": {"R1": 7},
-            "R1": {"R5": 10},
-        }
-    else:
-        if not (args.trajet_file and args.affect_file and args.times_file):
-            p.error("Either --demo or all of --trajet-file, --affect-file and --times-file must be provided")
-        with open(args.trajet_file, "r", encoding="utf-8") as f:
-            raw_trajet = json.load(f)
-        with open(args.affect_file, "r", encoding="utf-8") as f:
-            raw_affect = json.load(f)
-        with open(args.times_file, "r", encoding="utf-8") as f:
-            raw_temps = json.load(f)
-
-        # normalize inputs to common internal names used by compute_schedule
-        trajet = _normalize_trajet(raw_trajet)
-        affect = _normalize_affectations(raw_affect)
-        temps = _normalize_temps(raw_temps)
-
-    # validate inputs before computing schedule
-    validate_inputs(
-        trajet,
-        affect,
-        temps,
-        default_travel_min=args.default_travel_min,
-    )
-
-    schedule = compute_schedule(
-        trajet,
-        affect,
-        temps,
-        start_time=args.start_time,
-        stop_time_per_passenger_min=args.stop_min,
-        default_travel_min=args.default_travel_min,
-        lenient=args.lenient,
-    )
-
-    print(json.dumps(schedule, indent=2, ensure_ascii=False))
-
-    if args.output_csv:
-        df = to_dataframe(schedule)
-        df.to_csv(args.output_csv, index=False)
-        logging.info(f"Wrote CSV to {args.output_csv}")
-
-
 def determine_stop_point_per_passenger(affectations_par_point: Dict[str, Any]) -> Dict[str, Dict[str, Optional[str]]]:
     """Return a mapping for each passenger name to their boarding and alighting points.
 
@@ -383,6 +317,3 @@ def determine_stop_point_per_passenger(affectations_par_point: Dict[str, Any]) -
 
     return result
 
-
-if __name__ == "__main__":
-    main()
