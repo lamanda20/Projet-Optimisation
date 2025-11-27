@@ -1,0 +1,40 @@
+{
+  "TRAJET_ORDRE": [
+    "Depart",
+    "R1",
+    "R2",
+    "R3"
+  ],
+  "AFFECTATIONS_PAR_POINT": {
+    "R1": [
+      "P1",
+      "P2"
+    ],
+    "R2": [
+      "P3",
+      "P4"
+    ],
+    "R3": [
+      "P5",
+      "P6"
+    ]
+  },
+  "TEMPS_TRAJET_MIN": {
+    "Depart": {
+      "R1": 0
+    },
+    "R1": {
+      "R2": 71
+    },
+    "R2": {
+      "R3": 71
+    }
+  },
+  "Z_optimal": 6,
+  "metadata": {
+    "method": "heuristic",
+    "R_dest": 15.0,
+    "R_depart": 15.0,
+    "groupes": 3
+  }
+}
