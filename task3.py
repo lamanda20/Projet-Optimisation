@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Union, Optional, Tuple
-import argparse
 import json
 import logging
+import os
 
 
 # configure basic logging
@@ -24,10 +24,10 @@ def _parse_time(t: Union[str, datetime]) -> datetime:
 
 def _get_travel_time(a: str, b: str, temps: Dict[str, Dict[str, int]], default_travel_min: Optional[int] = None) -> int:
     # try direct
-    if a in temps and b in temps[a]:
+    if isinstance(temps, dict) and a in temps and isinstance(temps[a], dict) and b in temps[a]:
         return int(temps[a][b])
     # try symmetric
-    if b in temps and a in temps[b]:
+    if isinstance(temps, dict) and b in temps and isinstance(temps[b], dict) and a in temps[b]:
         return int(temps[b][a])
     if default_travel_min is not None:
         logging.warning(f"Missing travel time between '{a}' and '{b}' — using default {default_travel_min} min")
@@ -69,21 +69,8 @@ def compute_schedule(
     """
     Compute arrival/departure times and running passenger counts for an ordered route.
 
-    Inputs:
-    - trajet_ordre: ordered list of points (including start point)
-    - affectations_par_point: dict where each key is a point and value is either:
-        * a list of passenger names (interpreted as boardings), or
-        * a dict with keys 'board' and/or 'alight' mapping to lists of names
-        * an int interpreted as number of boardings
-    - temps_trajet_min: nested dict with travel minutes between points, e.g. {'A': {'B': 10}, ...}
-    - start_time: 'HH:MM' or ISO string or datetime for the departure from the first point
-    - stop_time_per_passenger_min: minutes added per boarding or alighting passenger
-
-    Behavior:
-    - strict on missing travel times: raises ValueError
-    - strict on over-alighting: raises ValueError if trying to alight more than on board
-
-    Returns: list of records per point with keys: point, arrival, departure, board, alight, cumulative, dwell_minutes
+    Returns a list of records per point with keys:
+      point, arrival (ISO), departure (ISO), board, alight, cumulative, dwell_minutes, passengers_boarded
     """
     if not trajet_ordre:
         return []
@@ -92,12 +79,9 @@ def compute_schedule(
     records: List[Dict[str, Any]] = []
     cumulative = 0
 
-    # The first point: arrival = start_time (driver is at start), compute board/alight there
     prev_point = trajet_ordre[0]
-    # For first point we consider arrival = start_time
     arrival = current_time
     board, alight, boarded_names = _count_board_alight(prev_point, affectations_par_point)
-    # alight at start is usually 0, but validate
     if alight > cumulative:
         if lenient:
             logging.warning(f"Alight ({alight}) at '{prev_point}' > currently on board ({cumulative}) — clamping to available")
@@ -118,9 +102,7 @@ def compute_schedule(
         "passengers_boarded": boarded_names,
     })
 
-    # iterate remaining legs
     for cur_point in trajet_ordre[1:]:
-        # travel time from prev_point to cur_point
         travel_min = _get_travel_time(prev_point, cur_point, temps_trajet_min, default_travel_min)
         arrival = departure + timedelta(minutes=travel_min)
         board, alight, boarded_names = _count_board_alight(cur_point, affectations_par_point)
@@ -162,7 +144,6 @@ def to_dataframe(schedule: List[Dict[str, Any]]):
         return pd.DataFrame()
 
     df = pd.DataFrame(schedule)
-    # parse datetimes
     df["arrival"] = pd.to_datetime(df["arrival"])
     df["departure"] = pd.to_datetime(df["departure"])
     return df
@@ -171,9 +152,6 @@ def to_dataframe(schedule: List[Dict[str, Any]]):
 # Helper utilities added to be compatible with the merged branch architecture
 
 def _extract_key_from_dict(obj: Dict[str, Any], candidates: List[str]):
-    """Return the first matching key's value from obj, trying several candidate key names (case-sensitive).
-    If none match, return None.
-    """
     if not isinstance(obj, dict):
         return None
     for key in candidates:
@@ -183,10 +161,8 @@ def _extract_key_from_dict(obj: Dict[str, Any], candidates: List[str]):
 
 
 def _normalize_trajet(obj: Any) -> List[str]:
-    # if file already contains a list
     if isinstance(obj, list):
         return obj
-    # if dict, try common key names
     val = _extract_key_from_dict(obj, ["TRAJET_ORDRE", "trajet_ordre", "trajet", "TRJ"])
     if isinstance(val, list):
         return val
@@ -195,11 +171,9 @@ def _normalize_trajet(obj: Any) -> List[str]:
 
 def _normalize_affectations(obj: Any) -> Dict[str, Any]:
     if isinstance(obj, dict):
-        # if dict contains top-level AFFECTATIONS_PAR_POINT key
         v = _extract_key_from_dict(obj, ["AFFECTATIONS_PAR_POINT", "affectations_par_point", "affectations", "AFFECTATIONS"])
         if v is not None:
             return v
-        # otherwise assume the dict itself is the affectations map
         return obj
     raise ValueError("Unable to extract affectations_par_point from provided JSON file")
 
@@ -220,28 +194,15 @@ def validate_inputs(
     Z_optimal: Optional[int] = None,
     default_travel_min: Optional[int] = None,
 ) -> None:
-    """Validate the input structures expected by Task3B.
-
-    Raises ValueError with a clear message when an invariant is violated.
-    Checks performed:
-    - `trajet_ordre` is a non-empty list
-    - `affectations_par_point` is a dict
-    - All points referenced in affectations exist in trajet_ordre
-    - Travel times exist for consecutive legs (or default_travel_min provided)
-    - If Z_optimal provided, number of distinct passenger names equals Z_optimal
-    """
-    # basic types
     if not isinstance(trajet_ordre, list) or len(trajet_ordre) == 0:
         raise ValueError("TRAJET_ORDRE must be a non-empty list")
     if not isinstance(affectations_par_point, dict):
         raise ValueError("AFFECTATIONS_PAR_POINT must be a dictionary")
 
-    # points consistency
     extra_points = [p for p in affectations_par_point.keys() if p not in trajet_ordre]
     if extra_points:
         raise ValueError(f"Points in AFFECTATIONS_PAR_POINT not present in TRAJET_ORDRE: {extra_points}")
 
-    # check travel times for consecutive legs
     for a, b in zip(trajet_ordre, trajet_ordre[1:]):
         has = False
         if isinstance(temps_trajet_min, dict):
@@ -252,7 +213,6 @@ def validate_inputs(
         if not has and default_travel_min is None:
             raise ValueError(f"Missing travel time between '{a}' and '{b}' and no default_travel_min provided")
 
-    # collect passenger names
     stops = determine_stop_point_per_passenger(affectations_par_point)
     names = set(stops.keys())
     if Z_optimal is not None:
@@ -267,22 +227,9 @@ def validate_inputs(
 
 
 def determine_stop_point_per_passenger(affectations_par_point: Dict[str, Any]) -> Dict[str, Dict[str, Optional[str]]]:
-    """Return a mapping for each passenger name to their boarding and alighting points.
-
-    Output format:
-      { 'Alice': {'board': 'R3', 'alight': None}, 'Bob': {'board': 'R1', 'alight': 'R5'}, ... }
-
-    The function supports affectation formats where values are:
-      - list of passenger names -> interpreted as boardings at that point
-      - dict with keys 'board' and/or 'alight' mapping to lists of names
-      - int -> treated as a count (ignored for passenger names)
-
-    If a passenger appears multiple times for the same action, the first occurrence wins.
-    """
     result: Dict[str, Dict[str, Optional[str]]] = {}
 
     for point, val in affectations_par_point.items():
-        # dict with explicit board/alight lists
         if isinstance(val, dict):
             boards = val.get('board', [])
             alights = val.get('alight', [])
@@ -302,7 +249,6 @@ def determine_stop_point_per_passenger(affectations_par_point: Dict[str, Any]) -
                             result[name]['alight'] = point
             continue
 
-        # list of names -> boards
         if isinstance(val, list):
             for name in val:
                 if name not in result:
@@ -312,8 +258,24 @@ def determine_stop_point_per_passenger(affectations_par_point: Dict[str, Any]) -
                         result[name]['board'] = point
             continue
 
-        # integer or unknown -> skip (no passenger names)
         continue
 
     return result
 
+
+def build_task3a_output(trajet_ordre, affectations_par_point, temps_trajet_min, z_optimal=None):
+    output = {
+        "TRAJET_ORDRE": trajet_ordre,
+        "AFFECTATIONS_PAR_POINT": affectations_par_point,
+        "TEMPS_TRAJET_MIN": temps_trajet_min,
+    }
+    if z_optimal is not None:
+        output["Z_optimal"] = z_optimal
+    return output
+
+
+def save_output_json(data, filepath="data/assignment.json"):
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    logging.info(f"Wrote Task3A output to {filepath}")
