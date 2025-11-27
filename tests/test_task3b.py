@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
-from task3b import determine_stop_point_per_passenger
+from task3 import determine_stop_point_per_passenger
 
 
 def test_list_affectations():

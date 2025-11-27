@@ -1,5 +1,5 @@
 import json
-from task3b import compute_schedule, to_dataframe
+from task3 import compute_schedule, to_dataframe
 
 trajet = ["Depart", "R3", "R1", "R5"]
 affect = {"R3": ["Alice", "Charlie"], "R1": ["Bob"], "R5": ["Diane", "Eve"]}
@@ -13,4 +13,3 @@ try:
 except Exception as e:
     print("PANDAS_ERROR:", e)
     print(json.dumps(sched, indent=2, ensure_ascii=False))
-
