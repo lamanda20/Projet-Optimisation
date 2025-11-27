@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from models.Passager import Passager
 from models.Conducteur import Conducteur
 from algorithms.exact.clustering_exact import phase1_clustering_double
