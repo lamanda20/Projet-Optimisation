@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from task3 import determine_stop_point_per_passenger
+from pickup_scheduler import determine_stop_point_per_passenger
 
 
 def test_list_and_dict_formats():

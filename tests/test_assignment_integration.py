@@ -3,11 +3,11 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import json
-from task3 import validate_inputs, determine_stop_point_per_passenger, compute_schedule
+from pickup_scheduler import validate_inputs, determine_stop_point_per_passenger, compute_schedule
 
 
 def test_assignment_json_integration():
-    # load the consolidated assignment produced by Task3A
+    # load the consolidated assignment produced by pickup_schedulerA
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     path = os.path.join(repo_root, "data", "assignment.json")
     assert os.path.exists(path), f"Expected assignment.json at {path}"

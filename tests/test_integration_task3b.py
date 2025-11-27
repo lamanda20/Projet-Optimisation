@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
-from task3 import validate_inputs, compute_schedule
+from pickup_scheduler import validate_inputs, compute_schedule
 
 
 def demo_data():

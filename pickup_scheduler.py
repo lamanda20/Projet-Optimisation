@@ -263,7 +263,7 @@ def determine_stop_point_per_passenger(affectations_par_point: Dict[str, Any]) -
     return result
 
 
-def build_task3a_output(trajet_ordre, affectations_par_point, temps_trajet_min, z_optimal=None):
+def build_pickup_schedulera_output(trajet_ordre, affectations_par_point, temps_trajet_min, z_optimal=None):
     output = {
         "TRAJET_ORDRE": trajet_ordre,
         "AFFECTATIONS_PAR_POINT": affectations_par_point,
@@ -278,4 +278,4 @@ def save_output_json(data, filepath="data/assignment.json"):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    logging.info(f"Wrote Task3A output to {filepath}")
+    logging.info(f"Wrote pickup_schedulerA output to {filepath}")
