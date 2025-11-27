@@ -59,3 +59,5 @@ def test_validate_zoptimal_mismatch_raises():
 if __name__ == "__main__":
     pytest.main(["-q"])
 
+# ok
+
