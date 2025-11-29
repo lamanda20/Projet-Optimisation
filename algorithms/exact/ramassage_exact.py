@@ -67,10 +67,11 @@ def _calculer_seuil_optimal(passagers: List[Passager]) -> float:
             distances.append(dist)
     
     if not distances:
-        return 1.0
+        return 5.0
     
-    # Seuil = moyenne des distances / 2 (équilibre entre proximité et nombre de points)
-    return sum(distances) / len(distances) / 2
+    # Seuil plus généreux pour regrouper plus de passagers
+    moyenne = sum(distances) / len(distances)
+    return max(moyenne * 0.8, 5.0)  # Au minimum 5.0 pour garantir des regroupements
 
 def _calculer_centroide(positions: List[Tuple[int, int]]) -> Tuple[int, int]:
     """Calcule le centroïde d'un groupe de positions"""

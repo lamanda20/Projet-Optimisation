@@ -66,12 +66,13 @@ def _calculer_seuil_heuristique(passagers: List[Passager]) -> float:
             distances.append(dist)
     
     if not distances:
-        return 1.0
+        return 8.0
     
     distances.sort()
-    # Seuil = médiane des distances (plus robuste aux outliers)
-    mediane_idx = len(distances) // 2
-    return distances[mediane_idx]
+    # Seuil plus généreux basé sur le 75e percentile
+    percentile_75_idx = int(len(distances) * 0.75)
+    seuil_calcule = distances[min(percentile_75_idx, len(distances) - 1)]
+    return max(seuil_calcule, 8.0)  # Au minimum 8.0 pour l'heuristique
 
 def _trouver_passager_central(passagers: List[Passager], seuil: float) -> Passager:
     """Trouve le passager avec le plus de voisins dans le seuil"""
