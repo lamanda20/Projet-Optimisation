@@ -6,6 +6,7 @@ from algorithms.exact.clustering_exact import phase1_clustering_double
 from algorithms.exact.selection_exact import selection_exact
 from algorithms.exact.ramassage_exact import ramassage_exact
 from algorithms.heuristic.ramassage_heuristic import ramassage_heuristic
+from pickup_scheduler import compute_schedule, determine_stop_point_per_passenger, validate_inputs
 
 class InterfaceOptimisation:
     def __init__(self):
@@ -142,6 +143,7 @@ class InterfaceOptimisation:
         
         ttk.Button(button_frame, text="Charger Exemple", command=self.charger_exemple).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Effacer Tout", command=self.effacer_tout).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Exporter JSON", command=self.exporter_json).pack(side=tk.LEFT, padx=5)
     
     def ajouter_passager(self):
         try:
@@ -198,21 +200,21 @@ class InterfaceOptimisation:
             # Zone 1: Nord-Ouest (5-10) - 4 passagers
             Passager(1, (5, 5), (80, 80)),
             Passager(2, (8, 7), (82, 81)), 
-            Passager(3, (6, 9), (81, 83)),
-            Passager(4, (9, 6), (83, 79)),
+            Passager(3, (28, 27), (79, 77)),
+            Passager(11, (35, 35), (75, 75)),
             
             # Zone 2: Nord-Est (15-20) - 3 passagers  
             Passager(5, (15, 15), (85, 85)),
             Passager(6, (18, 17), (87, 86)),
-            Passager(7, (16, 19), (86, 88)),
-            
-            # Zone 3: Centre (25-30) - 3 passagers
-            Passager(8, (25, 25), (78, 78)),
-            Passager(9, (28, 27), (79, 77)),
             Passager(10, (26, 29), (77, 80)),
             
+            # Zone 3: Centre (25-30) - 3 passagers
+            Passager(9, (6, 9), (81, 83)),
+            Passager(8, (25, 25), (78, 78)),
+            Passager(7, (9, 6), (86, 88)),
+            
             # Zone 4: Sud-Ouest (35-40) - 3 passagers
-            Passager(11, (35, 35), (75, 75)),
+            Passager(4, (16, 19), (83, 79)),
             Passager(12, (38, 37), (76, 74)),
             Passager(13, (36, 39), (74, 76)),
             
@@ -230,6 +232,31 @@ class InterfaceOptimisation:
         self.passagers = []
         self.liste_passagers.delete(0, tk.END)
         self.resultats.delete(1.0, tk.END)
+        self.derniers_resultats = None
+    
+    def exporter_json(self):
+        """Exporte les derniers résultats en JSON"""
+        if not hasattr(self, 'derniers_resultats') or not self.derniers_resultats:
+            messagebox.showwarning("Attention", "Aucun résultat à exporter. Lancez d'abord un calcul.")
+            return
+        
+        try:
+            from tkinter import filedialog
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".json",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+                title="Exporter les résultats"
+            )
+            
+            if filename:
+                import json
+                with open(filename, 'w', encoding='utf-8') as f:
+                    json.dump(self.derniers_resultats, f, indent=2, ensure_ascii=False)
+                
+                messagebox.showinfo("Succès", f"Résultats exportés vers:\n{filename}")
+        
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Erreur lors de l'export: {e}")
     
     def calculer(self):
         try:
@@ -352,6 +379,110 @@ class InterfaceOptimisation:
             for i, point in enumerate(points):
                 ids = [p.id for p in point['passagers']]
                 self.resultats.insert(tk.END, f"Point {i+1}: {point['point_ramassage']} -> Passagers {ids}\n")
+            
+            # === ETAPE 4: POINTS D'ARRET ===
+            self.resultats.insert(tk.END, f"\n--- POINTS D'ARRET ---\n")
+            
+            from pickup_scheduler import optimize_drop_off_points
+            points_arret = optimize_drop_off_points(groupe_optimal, method=methode)
+            
+            self.resultats.insert(tk.END, f"Points d'arrêt: {len(points_arret)}\n\n")
+            
+            for i, point in enumerate(points_arret):
+                ids = [p.id for p in point['passagers']]
+                self.resultats.insert(tk.END, f"Arrêt {i+1}: {point['point_arret']} -> Passagers {ids}\n")
+            
+            # === ETAPE 5: PLANIFICATION TEMPORELLE ===
+            self.resultats.insert(tk.END, f"\n--- PLANIFICATION TEMPORELLE ---\n")
+            
+            schedule = None
+            trajet_ordre = None
+            affectations = None
+            temps_trajet = None
+            
+            try:
+                # Générer le trajet complet
+                from pickup_scheduler import generate_complete_route
+                trajet_ordre, affectations, temps_trajet = generate_complete_route(
+                    points, points_arret, conducteur_pos
+                )
+                
+                # Validation des entrées
+                validate_inputs(trajet_ordre, affectations, temps_trajet, len(groupe_optimal))
+                
+                # Calcul du planning
+                schedule = compute_schedule(
+                    trajet_ordre, 
+                    affectations, 
+                    temps_trajet,
+                    start_time="08:00",
+                    stop_time_per_passenger_min=2
+                )
+                
+                self.resultats.insert(tk.END, f"Planning généré avec succès!\n")
+                self.resultats.insert(tk.END, f"Trajet: {' -> '.join(trajet_ordre)}\n\n")
+                
+                # Afficher le planning détaillé
+                self.resultats.insert(tk.END, "HORAIRES DETAILLES:\n")
+                for record in schedule:
+                    point = record['point']
+                    # Extraire seulement HH:MM de l'ISO format
+                    arrival_time = record['arrival'].split('T')[1][:5] if 'T' in record['arrival'] else record['arrival'][11:16]
+                    departure_time = record['departure'].split('T')[1][:5] if 'T' in record['departure'] else record['departure'][11:16]
+                    board = record['board']
+                    cumulative = record['cumulative']
+                    
+                    if point == "Depart":
+                        self.resultats.insert(tk.END, f"  {point}: Départ à {departure_time}\n")
+                    else:
+                        passagers = ', '.join(record.get('passengers_boarded', []))
+                        self.resultats.insert(tk.END, f"  {point}: Arrivée {arrival_time}, Départ {departure_time}\n")
+                        self.resultats.insert(tk.END, f"    Montée: {board} passagers ({passagers})\n")
+                        self.resultats.insert(tk.END, f"    Total à bord: {cumulative}\n")
+                
+                # Calcul du temps total du trajet (durée)
+                heure_depart = schedule[0]['departure']
+                heure_arrivee = schedule[-1]['arrival']
+                
+                # Convertir en datetime pour calculer la différence
+                from datetime import datetime
+                if 'T' in heure_depart:
+                    dt_depart = datetime.fromisoformat(heure_depart)
+                    dt_arrivee = datetime.fromisoformat(heure_arrivee)
+                else:
+                    dt_depart = datetime.fromisoformat(f"2025-01-01T{heure_depart}")
+                    dt_arrivee = datetime.fromisoformat(f"2025-01-01T{heure_arrivee}")
+                
+                duree_totale = dt_arrivee - dt_depart
+                minutes_totales = int(duree_totale.total_seconds() / 60)
+                heures = minutes_totales // 60
+                minutes = minutes_totales % 60
+                
+                heure_arrivee_finale = heure_arrivee.split('T')[1][:5] if 'T' in heure_arrivee else heure_arrivee[11:16]
+                
+                self.resultats.insert(tk.END, f"\nHeure d'arrivée finale: {heure_arrivee_finale}\n")
+                self.resultats.insert(tk.END, f"Durée totale du trajet: {heures}h{minutes:02d}min ({minutes_totales} minutes)\n")
+                
+                # Sauvegarder pour export
+                if schedule and trajet_ordre and affectations and temps_trajet:
+                    self.derniers_resultats = {
+                        "TRAJET_ORDRE": trajet_ordre,
+                        "AFFECTATIONS_PAR_POINT": affectations,
+                        "TEMPS_TRAJET_MIN": temps_trajet,
+                        "Z_optimal": len(groupe_optimal),
+                        "SCHEDULE": schedule,
+                        "metadata": {
+                            "methode": methode,
+                            "nb_passagers": len(self.passagers),
+                            "nb_points_ramassage": len(points),
+                            "conducteur_position": conducteur_pos,
+                            "parametres": {"R_dest": r_dest, "R_depart": r_depart}
+                        }
+                    }
+                
+            except Exception as e:
+                self.resultats.insert(tk.END, f"Erreur planification: {str(e)}\n")
+                self.derniers_resultats = None
             
             self.resultats.insert(tk.END, f"\n=== CALCUL TERMINÉ ===\n")
             

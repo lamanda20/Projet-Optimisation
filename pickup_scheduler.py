@@ -274,6 +274,153 @@ def build_pickup_schedulera_output(trajet_ordre, affectations_par_point, temps_t
     return output
 
 
+def optimize_drop_off_points(passagers_groupe, method="exact", seuil=None):
+    if not passagers_groupe:
+        return []
+    
+    if len(passagers_groupe) == 1:
+        return [{"point_arret": passagers_groupe[0].pos_arrivee, "passagers": [passagers_groupe[0]]}]
+    
+    if seuil is None:
+        seuil = _calculer_seuil_destinations(passagers_groupe, method)
+    
+    points_arret = []
+    passagers_restants = passagers_groupe.copy()
+    
+    while passagers_restants:
+        if method == "exact":
+            passager_ref = passagers_restants[0]
+            groupe_arret = [passager_ref]
+            passagers_restants.remove(passager_ref)
+            
+            i = 0
+            while i < len(passagers_restants):
+                passager = passagers_restants[i]
+                dist = _distance_euclidienne(passager_ref.pos_arrivee, passager.pos_arrivee)
+                if dist <= seuil:
+                    groupe_arret.append(passager)
+                    passagers_restants.remove(passager)
+                else:
+                    i += 1
+            
+            point_arret = _calculer_centroide_destinations([p.pos_arrivee for p in groupe_arret])
+        else:
+            passager_central = _trouver_passager_central_destinations(passagers_restants, seuil)
+            groupe_arret = [passager_central]
+            passagers_restants.remove(passager_central)
+            
+            voisins = []
+            for passager in passagers_restants:
+                dist = _distance_euclidienne(passager_central.pos_arrivee, passager.pos_arrivee)
+                if dist <= seuil:
+                    voisins.append(passager)
+            
+            groupe_arret.extend(voisins)
+            for voisin in voisins:
+                passagers_restants.remove(voisin)
+            
+            point_arret = passager_central.pos_arrivee
+        
+        points_arret.append({"point_arret": point_arret, "passagers": groupe_arret})
+    
+    return points_arret
+
+def _calculer_seuil_destinations(passagers, method):
+    distances = []
+    for i in range(len(passagers)):
+        for j in range(i + 1, len(passagers)):
+            dist = _distance_euclidienne(passagers[i].pos_arrivee, passagers[j].pos_arrivee)
+            distances.append(dist)
+    
+    if not distances:
+        return 8.0
+    
+    if method == "exact":
+        moyenne = sum(distances) / len(distances)
+        return max(moyenne * 0.8, 5.0)
+    else:
+        distances.sort()
+        percentile_75_idx = int(len(distances) * 0.75)
+        return max(distances[min(percentile_75_idx, len(distances) - 1)], 8.0)
+
+def _trouver_passager_central_destinations(passagers, seuil):
+    max_voisins = -1
+    passager_central = passagers[0]
+    
+    for passager in passagers:
+        nb_voisins = 0
+        for autre in passagers:
+            if passager != autre:
+                dist = _distance_euclidienne(passager.pos_arrivee, autre.pos_arrivee)
+                if dist <= seuil:
+                    nb_voisins += 1
+        
+        if nb_voisins > max_voisins:
+            max_voisins = nb_voisins
+            passager_central = passager
+    
+    return passager_central
+
+def _calculer_centroide_destinations(destinations):
+    if not destinations:
+        return (0, 0)
+    
+    x_moy = sum(pos[0] for pos in destinations) / len(destinations)
+    y_moy = sum(pos[1] for pos in destinations) / len(destinations)
+    
+    return (round(x_moy), round(y_moy))
+
+def _distance_euclidienne(p1, p2):
+    import math
+    dx = p1[0] - p2[0]
+    dy = p1[1] - p2[1]
+    return math.sqrt(dx**2 + dy**2)
+
+def generate_complete_route(points_ramassage, points_arret, conducteur_pos):
+    trajet_ordre = ["Depart"]
+    affectations = {}
+    temps_trajet = {"Depart": {}}
+    
+    for i, point in enumerate(points_ramassage):
+        point_name = f"R{i+1}"
+        trajet_ordre.append(point_name)
+        passagers_names = [f"P{p.id}" for p in point['passagers']]
+        affectations[point_name] = passagers_names
+    
+    for i, point in enumerate(points_arret):
+        point_name = f"D{i+1}"
+        trajet_ordre.append(point_name)
+        passagers_names = [f"P{p.id}" for p in point['passagers']]
+        affectations[point_name] = {"alight": passagers_names}
+    
+    for i in range(len(trajet_ordre) - 1):
+        current_point = trajet_ordre[i]
+        next_point = trajet_ordre[i + 1]
+        
+        if current_point == "Depart":
+            current_pos = conducteur_pos
+        elif current_point.startswith("R"):
+            idx = int(current_point[1:]) - 1
+            current_pos = points_ramassage[idx]['point_ramassage']
+        elif current_point.startswith("D"):
+            idx = int(current_point[1:]) - 1
+            current_pos = points_arret[idx]['point_arret']
+        
+        if next_point.startswith("R"):
+            idx = int(next_point[1:]) - 1
+            next_pos = points_ramassage[idx]['point_ramassage']
+        elif next_point.startswith("D"):
+            idx = int(next_point[1:]) - 1
+            next_pos = points_arret[idx]['point_arret']
+        
+        dist = _distance_euclidienne(current_pos, next_pos)
+        
+        if current_point not in temps_trajet:
+            temps_trajet[current_point] = {}
+        temps_trajet[current_point][next_point] = round(dist)
+    
+    return trajet_ordre, affectations, temps_trajet
+
 def save_output_json(data, filepath="data/assignment.json"):
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w", encoding="utf-8") as f:
