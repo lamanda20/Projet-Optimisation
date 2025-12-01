@@ -35,10 +35,10 @@ def _get_travel_time(a: str, b: str, temps: Dict[str, Dict[str, int]], default_t
     raise ValueError(f"Missing travel time between '{a}' and '{b}' in TEMPS_TRAJET_MIN")
 
 
-def _count_board_alight(point: str, affectations: Dict[str, Any]) -> Tuple[int, int, List[str]]:
+def _count_board_alight(point: str, affectations: Dict[str, Any]) -> Tuple[int, int, List[str], List[str]]:
     # affectations may be: list of passenger names, or dict { 'board': [names] ,'alight': [names] }
     if point not in affectations:
-        return 0, 0, []
+        return 0, 0, [], []
     val = affectations[point]
     # if it's a dict with 'board'/'alight'
     if isinstance(val, dict):
@@ -47,12 +47,12 @@ def _count_board_alight(point: str, affectations: Dict[str, Any]) -> Tuple[int, 
         # normalize to lists
         board_list = board_list if isinstance(board_list, list) else []
         alight_list = alight_list if isinstance(alight_list, list) else []
-        return len(board_list), len(alight_list), board_list
+        return len(board_list), len(alight_list), board_list, alight_list
     # if it's a list of names, assume these are boardings at this point
     if isinstance(val, list):
-        return len(val), 0, val
+        return len(val), 0, val, []
     if isinstance(val, int):
-        return int(val), 0, []
+        return int(val), 0, [], []
     # unknown format
     raise ValueError(f"Unknown affectations format for point '{point}': {type(val)}")
 
@@ -81,7 +81,7 @@ def compute_schedule(
 
     prev_point = trajet_ordre[0]
     arrival = current_time
-    board, alight, boarded_names = _count_board_alight(prev_point, affectations_par_point)
+    board, alight, boarded_names, alighted_names = _count_board_alight(prev_point, affectations_par_point)
     if alight > cumulative:
         if lenient:
             logging.warning(f"Alight ({alight}) at '{prev_point}' > currently on board ({cumulative}) — clamping to available")
@@ -100,12 +100,13 @@ def compute_schedule(
         "cumulative": cumulative,
         "dwell_minutes": dwell_minutes,
         "passengers_boarded": boarded_names,
+        "passengers_alighted": alighted_names,
     })
 
     for cur_point in trajet_ordre[1:]:
         travel_min = _get_travel_time(prev_point, cur_point, temps_trajet_min, default_travel_min)
         arrival = departure + timedelta(minutes=travel_min)
-        board, alight, boarded_names = _count_board_alight(cur_point, affectations_par_point)
+        board, alight, boarded_names, alighted_names = _count_board_alight(cur_point, affectations_par_point)
         if alight > cumulative:
             if lenient:
                 logging.warning(f"Alight ({alight}) at '{cur_point}' > currently on board ({cumulative}) — clamping to available")
@@ -124,6 +125,7 @@ def compute_schedule(
             "cumulative": cumulative,
             "dwell_minutes": dwell_minutes,
             "passengers_boarded": boarded_names,
+            "passengers_alighted": alighted_names,
         })
         prev_point = cur_point
 
