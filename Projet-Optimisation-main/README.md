@@ -1,0 +1,82 @@
+# Projet-Optimisation
+PARTIE 1 : L'AFFECTATION DES PASSAGERS AU CONDUCTEURS + DETERMINATIONS DES POINTS DE RAMASSAGE
+
+Phase 1 : 
+implémente deux approches de clustering pour optimiser le regroupement de passagers selon leurs points de départ et d'arrivée :
+
+- **Clustering Exact** : Approche déterministe basée sur la distance euclidienne
+- **Clustering Heuristique** : Approche utilisant l'algorithme DBSCAN
+
+## Approche 1 : Clustering Exact
+
+### Principe
+Clustering déterministe en deux phases :
+1. **Phase 1.1** : Regroupement par destinations proches (rayon R_dest)
+2. **Phase 1.2** : Sous-regroupement par départs proches (rayon R_depart)
+
+### Caractéristiques
+- **Complexité** : O(n²) pour chaque phase
+- **Déterministe** : Résultats reproductibles
+- **Contrôle précis** : Rayons R_dest et R_depart configurables
+- **Contraintes** : Respecte la capacité du véhicule (2 ≤ taille ≤ capacité)
+
+## Approche 2 : Clustering Heuristique
+
+### Principe
+Utilise l'algorithme **DBSCAN** (Density-Based Spatial Clustering) pour identifier automatiquement les clusters denses.
+
+### Caractéristiques
+- **Complexité** : O(n log n) avec index spatial
+- **Robuste au bruit** : Ignore les points isolés
+- **Paramètres DBSCAN** :
+    - **eps** : Distance maximale entre deux points pour être considérés dans le même cluster
+    - **min_samples** : Nombre minimum de points pour former un cluster
+- **Automatique** : Détection automatique du nombre de clusters
+
+## Comparaison des Approches
+
+| Critère | Clustering Exact | Clustering Heuristique |
+|---------|------------------|------------------------|
+| **Algorithme** | Distance euclidienne | DBSCAN |
+| **Complexité** | O(n²) | O(n log n) |
+| **Déterminisme** | ✅ Reproductible | ✅ Reproductible |
+| **Gestion du bruit** | ❌ Sensible | ✅ Robuste |
+| **Performance** | Moyenne | Meilleure |
+| **Contrôle** | Précis | Automatique |
+
+## PARTIE 3 : DÉTERMINATION DES POINTS DE RAMASSAGE
+
+Après la sélection du groupe optimal de passagers, cette phase détermine les points de ramassage optimaux en regroupant les passagers selon leur proximité géographique.
+
+### Approche Exacte : Ramassage Exact
+
+#### Principe
+- **Regroupement séquentiel** : Premier passager comme référence, ajout des voisins dans le seuil
+- **Point de ramassage** : Centroïde calculé des positions du groupe
+- **Seuil optimal** : Moyenne des distances ÷ 2 (équilibre proximité/nombre de points)
+
+#### Caractéristiques
+- **Algorithme** : Distance euclidienne avec seuil adaptatif
+- **Optimisation** : Minimise la distance totale de marche
+- **Garantie** : Chaque passager assigné à un seul point
+
+### Approche Heuristique : Ramassage Heuristique
+
+#### Principe
+- **Densité maximale** : Sélection du passager avec le plus de voisins comme centre
+- **Point de ramassage** : Position du passager central
+- **Seuil optimal** : Médiane des distances (robuste aux outliers)
+
+#### Caractéristiques
+- **Algorithme** : Recherche de densité locale
+- **Efficacité** : Réduction du nombre de points de ramassage
+- **Robustesse** : Moins sensible aux positions aberrantes
+
+### Comparaison des Algorithmes de Ramassage
+
+| Critère | Ramassage Exact | Ramassage Heuristique |
+|---------|-----------------|----------------------|
+| **Point de ramassage** | Centroïde | Passager central |
+| **Seuil** | Moyenne ÷ 2 | Médiane |
+| **Optimisation** | Distance totale | Nombre de points |
+| **Robustesse** | Moyenne | Élevée |

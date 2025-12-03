@@ -1,0 +1,12 @@
+# Minimal requirements for Task 3B demo
+pandas>=1.0.0
+pytest>=6.0.0
+numpy>=1.20.0
+scikit-learn>=0.24.0
+# Modern GUI
+customtkinter>=5.0.0
+# Optional GUI map widget used by interface_gui (install to enable map):
+# Note: on some systems Tkinter is provided by the OS Python distribution
+# and may not require separate installation. The package below provides
+# an easy-to-use map widget for Tkinter.
+tkintermapview>=1.2.0

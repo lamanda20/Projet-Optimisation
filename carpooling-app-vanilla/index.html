@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marrakech Carpool - Route Optimizer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 17h14v-2H5m7-9c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m-3 4c-1.1 0-2 .9-2 2v2h10v-2c0-1.1-.9-2-2-2h-6z"/>
+                </svg>
+                <h1>Marrakech Carpool</h1>
+            </div>
+
+            <!-- Mode indicator -->
+            <div class="mode-indicator">
+                <p id="modeText">Drag the car onto the map to place driver</p>
+            </div>
+
+            <!-- Driver Section -->
+            <div class="card">
+                <div class="card-header">
+                    <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 17h14v-2H5m7-9c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2m-3 4c-1.1 0-2 .9-2 2v2h10v-2c0-1.1-.9-2-2-2h-6z"/>
+                    </svg>
+                    <h3>Driver</h3>
+                </div>
+                <div class="card-content">
+                    <div class="driver-drag-zone" id="driverDragZone" draggable="true">
+                        <div class="driver-icon">🚗</div>
+                        <div class="driver-text">
+                            <p class="driver-status" id="driverStatus">Drag me</p>
+                            <p class="driver-substatus">Drop on the map</p>
+                        </div>
+                    </div>
+
+                    <div class="capacity-control">
+                        <label>Capacity: <span id="capacityValue">4</span> passengers</label>
+                        <input type="range" id="capacitySlider" min="1" max="6" value="4" step="1">
+                    </div>
+
+                    <div class="driver-badge" id="driverBadge" style="display: none;">
+                        Driver is on the map
+                    </div>
+                </div>
+            </div>
+
+            <!-- Passengers Section -->
+            <div class="card passengers-card">
+                <div class="card-header">
+                    <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <h3>Passengers (<span id="passengerCount">0</span>)</h3>
+                </div>
+                <div class="card-content">
+                    <button class="btn btn-outline" id="addPassengerBtn">
+                        <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Add Passenger
+                    </button>
+
+                    <div class="pending-badge" id="pendingBadge" style="display: none;">
+                        Now click destination on map
+                    </div>
+
+                    <div class="passengers-list" id="passengersList"></div>
+                </div>
+            </div>
+
+            <!-- Algorithm Selection -->
+            <div class="card">
+                <div class="card-header">
+                    <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                    </svg>
+                    <h3>Algorithm</h3>
+                </div>
+                <div class="card-content">
+                    <select id="algorithmSelect" class="algorithm-select">
+                        <option value="heuristic">Heuristic (Fast)</option>
+                        <option value="exact">Exact (Optimal)</option>
+                    </select>
+                    <div class="api-status" id="apiStatus">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span id="statusText">Checking API...</span>
+                    </div>
+                    <p class="algorithm-info">
+                        <small>Heuristic: Fast, ~95% optimal. Best for 10+ passengers.</small><br/>
+                        <small>Exact: Slower, 100% optimal. Best for ≤10 passengers.</small>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <button class="btn btn-primary" id="solveBtn" disabled>
+                    <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                    </svg>
+                    Solve Assignment
+                </button>
+
+                <button class="btn btn-secondary" id="animateBtn" disabled>
+                    <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Animate Route
+                </button>
+
+                <button class="btn btn-outline" id="resetBtn">
+                    <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 4v6h6M23 20v-6h-6"></path>
+                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                    </svg>
+                    Reset
+                </button>
+            </div>
+
+            <!-- Stats -->
+            <div class="card stats-card" id="statsCard" style="display: none;">
+                <div class="card-content">
+                    <div class="stat-row">
+                        <span>Total Distance:</span>
+                        <span class="stat-value" id="totalDistance">0.00 km</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Assigned:</span>
+                        <span class="stat-value" id="assignedCount">0/0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Stops:</span>
+                        <span class="stat-value" id="stopsCount">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Road Points:</span>
+                        <span class="stat-value" id="roadPoints">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div class="map-container">
+            <div id="map"></div>
+
+            <!-- Route info overlay -->
+            <div class="route-overlay" id="routeOverlay" style="display: none;">
+                <svg class="icon-small animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                </svg>
+                <span id="routeStatus">En route...</span>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-icon driver-color"></div>
+                    <span>Driver</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon" style="background: #3b82f6;"></div>
+                    <span>Pickup Point 🚏</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon" style="background: #f59e0b;"></div>
+                    <span>Dropoff Point 🛑</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon pickup-color"></div>
+                    <span>Origin 👤</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon destination-color"></div>
+                    <span>Destination 🏁</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-line"></div>
+                    <span>Route</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/lib/distance-utils.js"></script>
+    <script src="js/lib/osrm-routing.js"></script>
+    <script src="js/lib/routing-algorithm.js"></script>
+    <script src="js/lib/api-client.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
