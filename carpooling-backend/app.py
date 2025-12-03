@@ -18,19 +18,14 @@ sys.path.append(os.path.join(parent_dir, 'Projet-Optimisation-main'))
 from models.Conducteur import Conducteur
 from models.Passager import Passager
 from algorithms.exact.selection_exact import selection_exact
-from algorithms.exact.clustering_exact import phase1_clustering_double
+from algorithms.exact.clustering_exact import phase1_clustering_double, tsp_exact_solver
 from algorithms.exact.ramassage_exact import ramassage_exact
 from algorithms.heuristic.selection_heuristic import selection_heuristic
-from algorithms.heuristic.clustering_heuristic import phase1_clustering_heuristic
+from algorithms.heuristic.clustering_heuristic import phase1_clustering_heuristic, nearest_neighbor_tsp
 from algorithms.heuristic.ramassage_heuristic import ramassage_heuristic
 from algorithms.phase2_integrator import phase2_solve, generate_affectations_par_point
-from pickup_scheduler import (
-    optimize_drop_off_points,
-    generate_complete_route,
-    compute_schedule,
-    determine_stop_point_per_passenger
-)
 from utils.distance import distance_grille
+from utils.centroide import calculer_centroide_grille
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -93,6 +88,132 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     c = 2 * math.asin(math.sqrt(a))
     
     return R * c
+
+
+def optimize_drop_off_points_custom(passagers_groupe: List[Passager], method: str = "heuristic") -> List[Dict]:
+    """
+    Create drop-off points by clustering passenger destinations
+    Similar logic to ramassage but for destinations
+    """
+    if not passagers_groupe:
+        return []
+    
+    if len(passagers_groupe) == 1:
+        return [{
+            'point_arret': passagers_groupe[0].pos_arrivee,
+            'passagers': [passagers_groupe[0]]
+        }]
+    
+    # Calculate distances between all destinations
+    distances = []
+    for i, p1 in enumerate(passagers_groupe):
+        for j, p2 in enumerate(passagers_groupe[i+1:], i+1):
+            dist = distance_grille(p1.pos_arrivee, p2.pos_arrivee)
+            distances.append(dist)
+    
+    # Calculate threshold based on method
+    if method == "exact":
+        # Use median distance
+        distances_sorted = sorted(distances)
+        seuil = distances_sorted[len(distances_sorted) // 2] if distances else 10
+    else:
+        # Use 75th percentile (heuristic)
+        import statistics
+        seuil = statistics.quantiles(distances, n=4)[2] if len(distances) >= 4 else (max(distances) * 0.75 if distances else 10)
+    
+    # Group passengers by destination proximity
+    points_arret = []
+    passagers_restants = passagers_groupe.copy()
+    
+    while passagers_restants:
+        # Pick reference passenger
+        if method == "exact":
+            passager_ref = passagers_restants[0]
+        else:
+            # Heuristic: pick passenger with most neighbors within threshold
+            meilleur_idx = 0
+            max_voisins = 0
+            for idx, p in enumerate(passagers_restants):
+                voisins = sum(1 for q in passagers_restants if distance_grille(p.pos_arrivee, q.pos_arrivee) <= seuil)
+                if voisins > max_voisins:
+                    max_voisins = voisins
+                    meilleur_idx = idx
+            passager_ref = passagers_restants[meilleur_idx]
+        
+        # Build group around reference
+        groupe_arret = [passager_ref]
+        passagers_restants.remove(passager_ref)
+        
+        # Add nearby passengers
+        i = 0
+        while i < len(passagers_restants):
+            passager = passagers_restants[i]
+            dist = distance_grille(passager_ref.pos_arrivee, passager.pos_arrivee)
+            if dist <= seuil:
+                groupe_arret.append(passager)
+                passagers_restants.pop(i)
+            else:
+                i += 1
+        
+        # Calculate centroid for this drop-off point
+        centroid = calculer_centroide_grille([p.pos_arrivee for p in groupe_arret])
+        
+        points_arret.append({
+            'point_arret': centroid,
+            'passagers': groupe_arret
+        })
+    
+    return points_arret
+
+
+def compute_schedule_custom(
+    trajet_complete: List[str],
+    affectations_complete: Dict[str, Dict],
+    temps_complete: Dict[str, Dict[str, int]],
+    start_time: str = "08:00"
+) -> List[Dict[str, Any]]:
+    """
+    Compute arrival/departure times for the route
+    """
+    from datetime import datetime, timedelta
+    
+    schedule = []
+    current_time = datetime.strptime(start_time, "%H:%M")
+    
+    for i, point in enumerate(trajet_complete):
+        arrival_time = current_time
+        
+        # Calculate dwell time (1 min per passenger boarding/alighting)
+        if point in affectations_complete:
+            num_passengers = len(affectations_complete[point].get('passagers', []))
+            dwell_minutes = num_passengers * 1
+        else:
+            dwell_minutes = 0
+        
+        departure_time = arrival_time + timedelta(minutes=dwell_minutes)
+        
+        schedule.append({
+            'point': point,
+            'arrival': arrival_time.strftime("%H:%M"),
+            'departure': departure_time.strftime("%H:%M"),
+            'passengers': affectations_complete.get(point, {}).get('passagers', []),
+            'type': affectations_complete.get(point, {}).get('type', 'start')
+        })
+        
+        # Move to next point
+        if i < len(trajet_complete) - 1:
+            next_point = trajet_complete[i + 1]
+            prev_point = point
+            
+            # Get travel time
+            if prev_point in temps_complete and next_point in temps_complete[prev_point]:
+                travel_time = temps_complete[prev_point][next_point]
+            else:
+                travel_time = 5  # Default 5 minutes
+            
+            current_time = departure_time + timedelta(minutes=travel_time)
+    
+    return schedule
 
 
 @app.route('/api/health', methods=['GET'])
@@ -176,6 +297,15 @@ def optimize_carpool():
         logger.info(f"Driver: GPS({driver_lat:.6f},{driver_lon:.6f}) → grid{driver_grid}, capacity={driver_capacity}")
         logger.info(f"Using {mode} algorithm with R_dest={R_dest}, R_depart={R_depart}")
         
+        # Calculate pairwise distances for debugging
+        if len(passagers) <= 10:
+            logger.info("=== Passenger Distance Analysis ===")
+            for i, p1 in enumerate(passagers):
+                for j, p2 in enumerate(passagers[i+1:], i+1):
+                    dist_pickup = distance_grille(p1.pos_depart, p2.pos_depart)
+                    dist_dest = distance_grille(p1.pos_arrivee, p2.pos_arrivee)
+                    logger.info(f"  {p1.id}↔{p2.id}: pickup_dist={dist_pickup:.1f}, dest_dist={dist_dest:.1f}")
+        
         # PHASE 1: Clustering - Create valid groups
         if mode == "exact":
             groupes_valides = phase1_clustering_double(passagers, conducteur, R_dest, R_depart)
@@ -184,12 +314,18 @@ def optimize_carpool():
         
         logger.info(f"Phase 1 clustering result: {len(groupes_valides) if groupes_valides else 0} groups")
         
+        # FALLBACK: If no groups formed, create individual passenger groups
         if not groupes_valides:
-            logger.warning("No valid passenger groups could be formed")
-            return jsonify({
-                "success": False,
-                "error": "No valid passenger groups could be formed. Try adjusting R_dest and R_depart parameters."
-            }), 400
+            logger.warning("No valid passenger groups could be formed - creating individual passenger groups as fallback")
+            groupes_valides = []
+            for passager in passagers:
+                groupes_valides.append({
+                    'passagers': [passager],
+                    'taille': 1,
+                    'centre_depart': passager.pos_depart,
+                    'centre_arrivee': passager.pos_arrivee
+                })
+            logger.info(f"Created {len(groupes_valides)} individual passenger groups")
         
         logger.info(f"Created {len(groupes_valides)} valid groups")
         
@@ -218,28 +354,81 @@ def optimize_carpool():
         
         logger.info(f"Created {len(points_ramassage)} pickup points")
         
-        # PHASE 4: Determine drop-off points
-        points_arret = optimize_drop_off_points(groupe_optimal, method=mode)
+        # PHASE 4: Determine drop-off points using custom function
+        points_arret = optimize_drop_off_points_custom(groupe_optimal, method=mode)
         
         logger.info(f"Created {len(points_arret)} drop-off points")
         
         # PHASE 5: Generate complete route with TSP optimization
-        trajet_complete, affectations_complete, temps_complete = generate_complete_route(
-            points_ramassage,
-            points_arret,
-            driver_grid
-        )
+        # Combine pickup and dropoff points for TSP
+        all_points = []
+        point_types = []
+        point_data = []
         
-        logger.info(f"Generated route with {len(trajet_complete)} stops")
+        # Add pickup points
+        for i, p_info in enumerate(points_ramassage):
+            all_points.append(p_info['point_ramassage'])
+            point_types.append('pickup')
+            point_data.append({'index': i, 'info': p_info, 'label': f'R{i+1}'})
         
-        # PHASE 6: Compute schedule with times
-        schedule = compute_schedule(
+        # Add dropoff points
+        for i, d_info in enumerate(points_arret):
+            all_points.append(d_info['point_arret'])
+            point_types.append('dropoff')
+            point_data.append({'index': i, 'info': d_info, 'label': f'D{i+1}'})
+        
+        # Apply TSP to find optimal order
+        if mode == "exact":
+            optimal_order = tsp_exact_solver(all_points, driver_grid)
+        else:
+            optimal_order = nearest_neighbor_tsp(all_points, driver_grid)
+        
+        # Build route based on TSP order
+        trajet_complete = ["Depart"]
+        affectations_complete = {}
+        temps_complete = {"Depart": {}}
+        
+        current_pos = driver_grid
+        for order_idx in optimal_order:
+            point_info = point_data[order_idx]
+            label = point_info['label']
+            point_pos = all_points[order_idx]
+            
+            trajet_complete.append(label)
+            
+            # Calculate travel time from current position
+            travel_time = round(distance_grille(current_pos, point_pos))
+            
+            # Get previous point label
+            prev_label = trajet_complete[-2]
+            if prev_label not in temps_complete:
+                temps_complete[prev_label] = {}
+            temps_complete[prev_label][label] = travel_time
+            
+            # Store passenger assignments
+            if point_types[order_idx] == 'pickup':
+                affectations_complete[label] = {
+                    'type': 'pickup',
+                    'passagers': [p.id for p in point_info['info']['passagers']],
+                    'position': point_pos
+                }
+            else:
+                affectations_complete[label] = {
+                    'type': 'dropoff',
+                    'passagers': [p.id for p in point_info['info']['passagers']],
+                    'position': point_pos
+                }
+            
+            current_pos = point_pos
+        
+        logger.info(f"Generated TSP-optimized route with {len(trajet_complete)} stops (mode: {mode})")
+        
+        # PHASE 6: Compute schedule with times using custom function
+        schedule = compute_schedule_custom(
             trajet_complete,
             affectations_complete,
             temps_complete,
-            start_time="08:00",
-            stop_time_per_passenger_min=1,
-            default_travel_min=5
+            start_time="08:00"
         )
         
         # Convert grid coordinates back to GPS for frontend
@@ -313,7 +502,14 @@ def optimize_carpool():
         
         # Build passenger assignments with pickup/dropoff info
         passenger_assignments = {}
-        stop_points = determine_stop_point_per_passenger(affectations_complete)
+        
+        # Build stop_points mapping from our affectations
+        stop_points = {}
+        for point_label, point_info in affectations_complete.items():
+            for passenger_id in point_info['passagers']:
+                if passenger_id not in stop_points:
+                    stop_points[passenger_id] = {}
+                stop_points[passenger_id][point_label] = point_info['type']
         
         for passenger_id, stops in stop_points.items():
             # Find which pickup and dropoff point this passenger uses

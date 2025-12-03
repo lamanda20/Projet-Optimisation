@@ -98,6 +98,12 @@
                         <small>Heuristic: Fast, ~95% optimal. Best for 10+ passengers.</small><br/>
                         <small>Exact: Slower, 100% optimal. Best for ≤10 passengers.</small>
                     </p>
+                    
+                    <div class="clustering-controls">
+                        <label>Clustering Radius: <span id="radiusValue">25</span> units (~2.5km)</label>
+                        <input type="range" id="radiusSlider" min="10" max="50" value="25" step="5">
+                        <small class="help-text">⚠️ If no groups form, increase this value</small>
+                    </div>
                 </div>
             </div>
 

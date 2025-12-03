@@ -245,20 +245,38 @@ function updateMarkers() {
 }
 
 // Update route polyline
-function updatePolyline() {
+async function updatePolyline() {
     if (polyline) {
         map.removeLayer(polyline);
         polyline = null;
     }
 
     if (state.route.length > 1) {
-        const pathCoords = state.route.map(stop => [stop.lat, stop.lon]);
+        // Get waypoints from route
+        const waypoints = state.route.map(stop => [stop.lat, stop.lon]);
         
-        polyline = L.polyline(pathCoords, {
-            color: '#3b82f6',
-            weight: 4,
-            opacity: 0.7
-        }).addTo(map);
+        // Try to get real road routing from OSRM
+        const routeData = await getFullRouteFromOSRM(waypoints);
+        
+        if (routeData && routeData.allCoordinates) {
+            // Use real road coordinates
+            polyline = L.polyline(routeData.allCoordinates, {
+                color: '#3b82f6',
+                weight: 4,
+                opacity: 0.7
+            }).addTo(map);
+            
+            console.log(`Route: ${routeData.totalDistance.toFixed(2)} km via ${routeData.allCoordinates.length} road points`);
+        } else {
+            // Fallback to straight lines if OSRM fails
+            console.warn('OSRM routing failed, using straight lines');
+            polyline = L.polyline(waypoints, {
+                color: '#3b82f6',
+                weight: 4,
+                opacity: 0.7,
+                dashArray: '10, 5' // Dashed to indicate it's not real routing
+            }).addTo(map);
+        }
 
         // Fit map to show full route
         map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
@@ -460,12 +478,16 @@ async function handleSolve() {
     solveBtn.disabled = true;
 
     try {
+        // Get clustering radius from slider
+        const radiusSlider = document.getElementById('radiusSlider');
+        const clusteringRadius = radiusSlider ? parseInt(radiusSlider.value) : 25;
+        
         const result = await api.optimize(
             state.driver, 
             state.passengers, 
             state.optimizationMode,
-            15, // R_dest
-            15  // R_depart
+            clusteringRadius, // R_dest
+            clusteringRadius  // R_depart
         );
         
         if (result && result.success) {
@@ -491,7 +513,23 @@ async function handleSolve() {
         }
     } catch (error) {
         console.error('Failed to solve assignment:', error);
-        alert('Failed to compute route: ' + error.message);
+        
+        // Check if error message suggests switching algorithm
+        const errorMsg = error.message || '';
+        if (errorMsg.includes('Heuristic')) {
+            const switchAlgo = confirm(
+                `${errorMsg}\n\nWould you like to switch to Heuristic mode now?`
+            );
+            if (switchAlgo) {
+                document.getElementById('algorithmSelect').value = 'heuristic';
+                state.optimizationMode = 'heuristic';
+                // Retry automatically
+                setTimeout(() => handleSolve(), 500);
+                return;
+            }
+        }
+        
+        alert('Failed to compute route: ' + errorMsg);
     } finally {
         solveBtn.innerHTML = `
             <svg class="icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -655,6 +693,16 @@ function initEventListeners() {
     document.getElementById('resetBtn').addEventListener('click', handleReset);
     document.getElementById('algorithmSelect').addEventListener('change', handleAlgorithmChange);
     document.getElementById('capacitySlider').addEventListener('input', handleCapacityChange);
+    
+    // Radius slider
+    const radiusSlider = document.getElementById('radiusSlider');
+    const radiusValue = document.getElementById('radiusValue');
+    if (radiusSlider && radiusValue) {
+        radiusSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            radiusValue.textContent = value;
+        });
+    }
     
     // Make driver draggable
     const driverDragZone = document.getElementById('driverDragZone');
