@@ -63,9 +63,11 @@ Server runs on `http://localhost:5000`
 backend/
 ├── main.py                          # FastAPI application (USE THIS!)
 ├── app.py                           # Old Flask app (deprecated, for reference)
+├── app_old.py                       # Older Flask version (backup)
 ├── requirements.txt                 # Python dependencies
-├── conftest.py                      # Pytest configuration
 ├── pytest.ini                       # Pytest settings
+├── interface_gui.py                 # Tkinter GUI (legacy)
+├── pickup_scheduler.py              # Pickup scheduling utilities
 │
 ├── algorithms/                      # Optimization algorithms
 │   ├── phase2_integrator.py        # Phase 2 integration utilities
@@ -83,6 +85,8 @@ backend/
 │       ├── cli_genetic_solver.py   # CLI interface
 │       ├── demo_genetic_algorithm.py # Demo script
 │       ├── compare_methods.py      # Comparison utilities
+│       ├── GENETIC_IMPLEMENTATION_SUMMARY.md
+│       ├── GENETIC_QUICKSTART.md
 │       └── README_GENETIC_ALGORITHM.md
 │
 ├── models/                          # Data models
@@ -106,6 +110,7 @@ backend/
 │   └── genetic_output_large.json
 │
 ├── tests/                           # Test suite
+│   ├── conftest.py                 # Pytest configuration
 │   ├── test_capacity_fix.py        # Capacity constraint tests
 │   ├── test_genetic_integration.py # Genetic algorithm tests
 │   ├── test_genetic_quick.py       # Quick genetic test
@@ -118,8 +123,8 @@ backend/
 └── Documentation Files:
     ├── FASTAPI_MIGRATION.md         # Flask → FastAPI migration guide
     ├── GENETIC_INTEGRATION.md       # Genetic algorithm integration docs
-    ├── CAPACITY_FIX_DOCUMENTATION.md # Capacity bug fix details
-    └── CAPACITY_FIX_SUMMARY.md      # Quick capacity fix reference
+    ├── README_PHASE2.md             # Phase 2 implementation guide
+    └── README_PROJECT_STATUS.md     # Project status overview
 ```
 
 ---

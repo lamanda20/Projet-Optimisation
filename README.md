@@ -174,8 +174,6 @@ projet_ro/
 - Capacity 4 → Maximum 4 passengers assigned total
 - System prevents "multiple trip" violations (bug fixed 2025-12-29)
 
-See [backend/CAPACITY_FIX_DOCUMENTATION.md](backend/CAPACITY_FIX_DOCUMENTATION.md) for details.
-
 ---
 
 ## 🏗️ Architecture
