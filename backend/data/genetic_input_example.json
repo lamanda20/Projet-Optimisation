@@ -1,0 +1,58 @@
+{
+  "conducteur": {
+    "position": [0, 0],
+    "capacite": 4
+  },
+  "passagers": [
+    {
+      "id": 1,
+      "depart": [2, 3],
+      "arrivee": [15, 18]
+    },
+    {
+      "id": 2,
+      "depart": [3, 4],
+      "arrivee": [16, 19]
+    },
+    {
+      "id": 3,
+      "depart": [8, 2],
+      "arrivee": [20, 15]
+    },
+    {
+      "id": 4,
+      "depart": [9, 3],
+      "arrivee": [21, 16]
+    },
+    {
+      "id": 5,
+      "depart": [5, 10],
+      "arrivee": [25, 25]
+    },
+    {
+      "id": 6,
+      "depart": [6, 11],
+      "arrivee": [26, 26]
+    },
+    {
+      "id": 7,
+      "depart": [4, 9],
+      "arrivee": [24, 24]
+    },
+    {
+      "id": 8,
+      "depart": [12, 5],
+      "arrivee": [30, 20]
+    },
+    {
+      "id": 9,
+      "depart": [13, 6],
+      "arrivee": [31, 21]
+    },
+    {
+      "id": 10,
+      "depart": [1, 1],
+      "arrivee": [14, 17]
+    }
+  ]
+}

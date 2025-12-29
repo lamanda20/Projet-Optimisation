@@ -2,10 +2,6 @@
 import sys
 import os
 
-# Add parent directory to path
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(parent_dir, 'Projet-Optimisation-main'))
-
 print("Testing imports...")
 
 try:

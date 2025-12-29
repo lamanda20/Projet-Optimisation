@@ -246,6 +246,36 @@ body {
     font-size: 0.75rem !important;
 }
 
+/* Genetic algorithm parameters section */
+.genetic-params {
+    background: #0f172a;
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+
+.genetic-params h4 {
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #94a3b8;
+}
+
+.genetic-params label {
+    display: block;
+    margin-top: 10px;
+    font-size: 0.875rem;
+    color: #cbd5e1;
+}
+
+.genetic-params input[type="range"] {
+    margin-top: 5px;
+}
+
+.genetic-params .help-text {
+    margin-top: 3px;
+    margin-bottom: 0;
+}
+
 /* Badges */
 .driver-badge, .pending-badge {
     padding: 0.5rem;

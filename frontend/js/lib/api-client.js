@@ -15,31 +15,40 @@ class CarpoolAPI {
         }
     }
 
-    async optimize(driver, passengers, mode = 'heuristic', R_dest = 25, R_depart = 25) {
+    async optimize(driver, passengers, mode = 'heuristic', R_dest = 25, R_depart = 25, geneticParams = null) {
         try {
+            const requestBody = {
+                driver: {
+                    lat: driver.position[0],
+                    lon: driver.position[1],
+                    capacity: driver.capacity
+                },
+                passengers: passengers.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    pickup_lat: p.pickup[0],
+                    pickup_lon: p.pickup[1],
+                    dest_lat: p.destination[0],
+                    dest_lon: p.destination[1]
+                })),
+                mode: mode,
+                R_dest: R_dest,
+                R_depart: R_depart
+            };
+            
+            // Add genetic algorithm parameters if mode is genetic
+            if (mode === 'genetic' && geneticParams) {
+                requestBody.population_size = geneticParams.populationSize;
+                requestBody.generations = geneticParams.generations;
+                requestBody.mutation_rate = geneticParams.mutationRate;
+            }
+            
             const response = await fetch(`${this.baseURL}/api/optimize`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    driver: {
-                        lat: driver.position[0],
-                        lon: driver.position[1],
-                        capacity: driver.capacity
-                    },
-                    passengers: passengers.map(p => ({
-                        id: p.id,
-                        name: p.name,
-                        pickup_lat: p.pickup[0],
-                        pickup_lon: p.pickup[1],
-                        dest_lat: p.destination[0],
-                        dest_lon: p.destination[1]
-                    })),
-                    mode: mode,
-                    R_dest: R_dest,
-                    R_depart: R_depart
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {

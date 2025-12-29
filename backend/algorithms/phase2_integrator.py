@@ -3,10 +3,7 @@ Phase 2 Integrator - Génère TRAJET_ORDRE et TEMPS_TRAJET_MIN
 Consolide les résultats des deux méthodes (exacte et heuristique)
 """
 
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from typing import List, Dict, Tuple, Optional, Literal
 import json
 from models.Passager import Passager

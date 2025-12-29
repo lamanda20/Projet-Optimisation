@@ -10,10 +10,7 @@ import os
 import logging
 from typing import List, Dict, Any, Tuple
 import math
-
-# Add parent directory to path to import from Projet-Optimisation-main
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(parent_dir, 'Projet-Optimisation-main'))
+import statistics
 
 from models.Conducteur import Conducteur
 from models.Passager import Passager

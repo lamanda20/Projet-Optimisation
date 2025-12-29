@@ -19,10 +19,16 @@ const state = {
     currentStopIndex: 0,
     isSolved: false,
     animationFrame: null,
-    optimizationMode: 'heuristic', // 'exact' or 'heuristic'
+    optimizationMode: 'heuristic', // 'exact', 'heuristic', or 'genetic'
     apiConnected: false,
     schedule: [],
-    statistics: null
+    statistics: null,
+    // Genetic algorithm parameters
+    geneticParams: {
+        populationSize: 100,
+        generations: 200,
+        mutationRate: 0.15
+    }
 };
 
 // Initialize API client
@@ -482,12 +488,19 @@ async function handleSolve() {
         const radiusSlider = document.getElementById('radiusSlider');
         const clusteringRadius = radiusSlider ? parseInt(radiusSlider.value) : 25;
         
+        // Get genetic parameters if genetic mode is selected
+        let geneticParams = null;
+        if (state.optimizationMode === 'genetic') {
+            geneticParams = state.geneticParams;
+        }
+        
         const result = await api.optimize(
             state.driver, 
             state.passengers, 
             state.optimizationMode,
             clusteringRadius, // R_dest
-            clusteringRadius  // R_depart
+            clusteringRadius, // R_depart
+            geneticParams     // genetic algorithm parameters
         );
         
         if (result && result.success) {
@@ -658,14 +671,19 @@ async function checkAPIStatus() {
 // Handle algorithm selection change
 function handleAlgorithmChange(e) {
     const value = e.target.value;
-    if (value === 'exact' || value === 'heuristic') {
-        state.optimizationMode = value;
-        if (state.isSolved) {
-            state.isSolved = false;
-            clearSolution();
-            updateUI();
-            updateMarkers();
-        }
+    state.optimizationMode = value;
+    
+    // Show/hide genetic algorithm parameters
+    const geneticParams = document.getElementById('geneticParams');
+    if (geneticParams) {
+        geneticParams.style.display = value === 'genetic' ? 'block' : 'none';
+    }
+    
+    if (state.isSolved) {
+        state.isSolved = false;
+        clearSolution();
+        updateUI();
+        updateMarkers();
     }
 }
 
@@ -701,6 +719,37 @@ function initEventListeners() {
         radiusSlider.addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
             radiusValue.textContent = value;
+        });
+    }
+    
+    // Genetic algorithm parameter sliders
+    const popSizeSlider = document.getElementById('popSizeSlider');
+    const popSizeValue = document.getElementById('popSizeValue');
+    if (popSizeSlider && popSizeValue) {
+        popSizeSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            popSizeValue.textContent = value;
+            state.geneticParams.populationSize = value;
+        });
+    }
+    
+    const generationsSlider = document.getElementById('generationsSlider');
+    const generationsValue = document.getElementById('generationsValue');
+    if (generationsSlider && generationsValue) {
+        generationsSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            generationsValue.textContent = value;
+            state.geneticParams.generations = value;
+        });
+    }
+    
+    const mutationSlider = document.getElementById('mutationSlider');
+    const mutationValue = document.getElementById('mutationValue');
+    if (mutationSlider && mutationValue) {
+        mutationSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            mutationValue.textContent = value.toFixed(2);
+            state.geneticParams.mutationRate = value;
         });
     }
     

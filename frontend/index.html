@@ -89,15 +89,35 @@
                     <select id="algorithmSelect" class="algorithm-select">
                         <option value="heuristic">Heuristic (Fast)</option>
                         <option value="exact">Exact (Optimal)</option>
+                        <option value="genetic">Genetic Algorithm (Metaheuristic)</option>
                     </select>
                     <div class="api-status" id="apiStatus">
                         <span class="status-dot" id="statusDot"></span>
                         <span id="statusText">Checking API...</span>
                     </div>
                     <p class="algorithm-info">
-                        <small>Heuristic: Fast, ~95% optimal. Best for 10+ passengers.</small><br/>
-                        <small>Exact: Slower, 100% optimal. Best for ≤10 passengers.</small>
+                        <small><strong>Heuristic:</strong> Fast, ~95% optimal. Best for 10+ passengers.</small><br/>
+                        <small><strong>Exact:</strong> Slower, 100% optimal. Best for ≤10 passengers.</small><br/>
+                        <small><strong>Genetic:</strong> Evolutionary algorithm. Excellent for large datasets.</small>
                     </p>
+                    
+                    <!-- Genetic Algorithm Parameters (shown when genetic is selected) -->
+                    <div class="genetic-params" id="geneticParams" style="display: none;">
+                        <hr style="margin: 15px 0; border: none; border-top: 1px solid #e5e7eb;">
+                        <h4 style="margin-bottom: 10px; font-size: 14px; color: #6b7280;">Genetic Algorithm Settings</h4>
+                        
+                        <label>Population Size: <span id="popSizeValue">100</span></label>
+                        <input type="range" id="popSizeSlider" min="20" max="300" value="100" step="20">
+                        <small class="help-text">Larger = better exploration, slower</small>
+                        
+                        <label style="margin-top: 10px;">Generations: <span id="generationsValue">200</span></label>
+                        <input type="range" id="generationsSlider" min="50" max="500" value="200" step="50">
+                        <small class="help-text">More = better convergence, longer runtime</small>
+                        
+                        <label style="margin-top: 10px;">Mutation Rate: <span id="mutationValue">0.15</span></label>
+                        <input type="range" id="mutationSlider" min="0.05" max="0.40" value="0.15" step="0.05">
+                        <small class="help-text">Higher = more exploration</small>
+                    </div>
                     
                     <div class="clustering-controls">
                         <label>Clustering Radius: <span id="radiusValue">25</span> units (~2.5km)</label>

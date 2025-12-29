@@ -61,6 +61,27 @@ htmlcov/
 *_old.js
 *.bak
 *.tmp
+READMEold.md
 
 # Node modules (if you add any later)
 node_modules/
+
+# Project-specific data files (uncomment if you don't want to track data)
+# backend/data/*.json
+# backend/results/*.json
+
+# Ignore test output files
+backend/results/genetic_solution.json
+
+# FastAPI/Uvicorn
+*.pid
+.uvicorn/
+
+# Jupyter Notebooks (if you add any)
+.ipynb_checkpoints/
+*.ipynb
+
+# Database files (if you add any)
+*.db
+*.sqlite
+*.sqlite3
