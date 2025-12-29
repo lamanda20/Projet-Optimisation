@@ -1,0 +1,65 @@
+{
+  "TRAJET_ORDRE": [
+    "Depart",
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R5"
+  ],
+  "AFFECTATIONS_PAR_POINT": {
+    "R1": [
+      "P1",
+      "P3",
+      "P2"
+    ],
+    "R2": [
+      "P5",
+      "P4",
+      "P6"
+    ],
+    "R3": [
+      "P10",
+      "P11",
+      "P9"
+    ],
+    "R4": [
+      "P14",
+      "P12",
+      "P15",
+      "P13"
+    ],
+    "R5": [
+      "P7",
+      "P8"
+    ]
+  },
+  "TEMPS_TRAJET_MIN": {
+    "Depart": {
+      "R1": 3
+    },
+    "R1": {
+      "R2": 11
+    },
+    "R2": {
+      "R3": 7
+    },
+    "R3": {
+      "R4": 11
+    },
+    "R4": {
+      "R5": 15
+    }
+  },
+  "Z_optimal": 15,
+  "metadata": {
+    "population_size": 100,
+    "generations": 200,
+    "mutation_rate": 0.15,
+    "R_dest": 5.0,
+    "R_depart": 5.0,
+    "method": "genetic_algorithm",
+    "total_passengers": 15,
+    "num_clusters": 5
+  }
+}
