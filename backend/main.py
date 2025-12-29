@@ -21,6 +21,7 @@ from algorithms.heuristic.selection_heuristic import selection_heuristic
 from algorithms.heuristic.clustering_heuristic import phase1_clustering_heuristic, nearest_neighbor_tsp
 from algorithms.heuristic.ramassage_heuristic import ramassage_heuristic
 from algorithms.genetic.genetic_carpooling import solve_genetic
+from algorithms.metaheuristic.selection_metaheuristic import phase1_clustering_metaheuristic
 from utils.distance import distance_grille
 from utils.centroide import calculer_centroide_grille
 
@@ -56,7 +57,7 @@ GRID_SIZE = 100
 class DriverInput(BaseModel):
     lat: float = Field(..., ge=31.58, le=31.68, description="Driver latitude")
     lon: float = Field(..., ge=-8.05, le=-7.92, description="Driver longitude")
-    capacity: int = Field(4, ge=1, le=10, description="Vehicle capacity")
+    capacity: int = Field(4, ge=1, le=100, description="Vehicle capacity")
 
 
 class PassengerInput(BaseModel):
@@ -71,9 +72,9 @@ class PassengerInput(BaseModel):
 class OptimizationRequest(BaseModel):
     driver: DriverInput
     passengers: List[PassengerInput] = Field(..., min_length=1)
-    mode: str = Field("heuristic", pattern="^(exact|heuristic|genetic)$")
-    R_dest: float = Field(15, ge=1, le=100, description="Destination clustering radius")
-    R_depart: float = Field(15, ge=1, le=100, description="Pickup clustering radius")
+    mode: str = Field("heuristic", pattern="^(exact|heuristic|genetic|tabou)$")
+    R_dest: float = Field(1, ge=1, le=100, description="Destination clustering radius")
+    R_depart: float = Field(1, ge=1, le=100, description="Pickup clustering radius")
     # Genetic algorithm parameters (only used when mode='genetic')
     population_size: int = Field(100, ge=10, le=500, description="GA population size")
     generations: int = Field(200, ge=10, le=1000, description="GA generations")
@@ -402,13 +403,16 @@ async def optimize_carpool(request: OptimizationRequest):
                     if len(groupe_optimal) >= conducteur.capacite:
                         break
                 use_genetic_route = False  # Don't use genetic route - rebuild it
+        elif request.mode == "tabou":
+            groupe_result = phase1_clustering_metaheuristic(passagers, conducteur, request.R_dest, request.R_depart)
+            groupe_optimal = groupe_result['passagers'] if groupe_result else []
         elif request.mode == "exact":
             groupes_valides = phase1_clustering_double(passagers, conducteur, request.R_dest, request.R_depart)
         else:
             groupes_valides = phase1_clustering_heuristic(passagers, conducteur, request.R_dest, request.R_depart)
         
-        # Fallback and Selection (skip for genetic as it already has optimal solution)
-        if request.mode != "genetic":
+        # Fallback and Selection (skip for genetic and tabou as they already have optimal solution)
+        if request.mode not in ["genetic", "tabou"]:
             # Fallback: create individual groups if no clusters formed
             if not groupes_valides:
                 logger.warning("No valid groups - creating individual passenger groups")

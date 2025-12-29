@@ -149,3 +149,43 @@ def generate_trajet_and_temps_heuristic(groupes: List[Dict], conducteur: Conduct
             temps_trajet[current_key][next_key] = travel_time
     
     return trajet_ordre, temps_trajet
+
+def clustering_departs_sans_capacite(clusters_dest: Dict[int, List[Passager]], R_depart: float) -> List[Dict]:
+    """Phase 1.2: Clustering départs sans contrainte de capacité"""
+    groupes_tous = []
+    
+    for cluster_id, passagers_cluster in clusters_dest.items():
+        if len(passagers_cluster) < 2:
+            continue
+        
+        departs = np.array([[p.pos_depart[0], p.pos_depart[1]] for p in passagers_cluster])
+        
+        labels_depart = DBSCAN(eps=R_depart, min_samples=2, metric='euclidean').fit_predict(departs)
+        
+        for sous_id in np.unique(labels_depart):
+            if sous_id == -1:
+                continue
+            
+            passagers_sous = [passagers_cluster[i] 
+                            for i, lab in enumerate(labels_depart) 
+                            if lab == sous_id]
+            
+            n = len(passagers_sous)
+            if n >= 2:  # Seulement minimum 2 passagers, pas de limite max
+                centre_depart = calculer_centroide_grille([p.pos_depart for p in passagers_sous])
+                centre_arrivee = calculer_centroide_grille([p.pos_arrivee for p in passagers_sous])
+                
+                groupes_tous.append({
+                    'passagers': passagers_sous,
+                    'taille': n,
+                    'centre_depart': centre_depart,
+                    'centre_arrivee': centre_arrivee
+                })
+    
+    return groupes_tous
+
+def phase1_clustering_tous_groupes(passagers: List[Passager], R_dest: float, R_depart: float) -> List[Dict]:
+    """Phase 1 complète: Clustering heuristique SANS contrainte de capacité conducteur"""
+    clusters_dest = clustering_destinations_heuristic(passagers, R_dest)
+    groupes_tous = clustering_departs_sans_capacite(clusters_dest, R_depart)
+    return groupes_tous

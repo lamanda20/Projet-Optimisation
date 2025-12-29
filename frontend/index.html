@@ -42,7 +42,7 @@
 
                     <div class="capacity-control">
                         <label>Capacity: <span id="capacityValue">4</span> passengers</label>
-                        <input type="range" id="capacitySlider" min="1" max="6" value="4" step="1">
+                        <input type="range" id="capacitySlider" min="1" max="100" value="4" step="1">
                     </div>
 
                     <div class="driver-badge" id="driverBadge" style="display: none;">
@@ -90,6 +90,7 @@
                         <option value="heuristic">Heuristic (Fast)</option>
                         <option value="exact">Exact (Optimal)</option>
                         <option value="genetic">Genetic Algorithm (Metaheuristic)</option>
+                        <option value="tabou">Tabou Search (Metaheuristic)</option>
                     </select>
                     <div class="api-status" id="apiStatus">
                         <span class="status-dot" id="statusDot"></span>
@@ -98,7 +99,8 @@
                     <p class="algorithm-info">
                         <small><strong>Heuristic:</strong> Fast, ~95% optimal. Best for 10+ passengers.</small><br/>
                         <small><strong>Exact:</strong> Slower, 100% optimal. Best for ≤10 passengers.</small><br/>
-                        <small><strong>Genetic:</strong> Evolutionary algorithm. Excellent for large datasets.</small>
+                        <small><strong>Genetic:</strong> Evolutionary algorithm. Excellent for large datasets.</small><br/>
+                        <small><strong>Tabou:</strong> Metaheuristic search. Good balance speed/quality.</small>
                     </p>
                     
                     <!-- Genetic Algorithm Parameters (shown when genetic is selected) -->
@@ -120,8 +122,8 @@
                     </div>
                     
                     <div class="clustering-controls">
-                        <label>Clustering Radius: <span id="radiusValue">25</span> units (~2.5km)</label>
-                        <input type="range" id="radiusSlider" min="10" max="50" value="25" step="5">
+                        <label>Clustering Radius: <span id="radiusValue">1</span> units (~50m)</label>
+                        <input type="range" id="radiusSlider" min="1" max="100" value="1" step="1">
                         <small class="help-text">⚠️ If no groups form, increase this value</small>
                     </div>
                 </div>
