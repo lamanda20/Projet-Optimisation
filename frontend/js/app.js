@@ -647,6 +647,125 @@ function handleReset() {
     }
 }
 
+// --- Examples helpers: grid -> GPS and dataset loaders ---
+function gridToGps(x, y) {
+    // Map grid (0..99) to Marrakech GPS bounds used by the app
+    const GRID_MAX = 99; // corresponds to grid indices 0..99
+    const latNorm = x / GRID_MAX;
+    const lonNorm = y / GRID_MAX;
+    const lat = MARRAKECH_BOUNDS.south + latNorm * (MARRAKECH_BOUNDS.north - MARRAKECH_BOUNDS.south);
+    const lon = MARRAKECH_BOUNDS.west + lonNorm * (MARRAKECH_BOUNDS.east - MARRAKECH_BOUNDS.west);
+    return [lat, lon];
+}
+
+function _setDriverCapacity8() {
+    state.capacity = 8;
+    const capSlider = document.getElementById('capacitySlider');
+    if (capSlider) capSlider.value = '8';
+    document.getElementById('capacityValue').textContent = '8';
+    if (state.driver) {
+        state.driver.capacity = 8;
+    } else {
+        // Place driver in the center if not placed
+        state.driver = { position: MARRAKECH_CENTER.slice(), capacity: 8 };
+    }
+    state.isSolved = false;
+    clearSolution();
+}
+
+function loadExample10() {
+    _setDriverCapacity8();
+    const passagers_10 = [
+        [40,50],[42,48],[39,52],[41,49],[38,51],[43,47],[40,53],[37,50],[44,49],[39,48]
+    ];
+    state.passengers = passagers_10.map((coords, i) => ({
+        id: `P${i+1}`,
+        name: `P${i+1}`,
+        pickup: gridToGps(coords[0], coords[1]),
+        destination: gridToGps(70 + (i%4), 80 + (i%4)) // slightly vary destinations to match example
+    }));
+    state.isSolved = false;
+    updateUI();
+    updateMarkers();
+    map.setView(state.driver.position, 12);
+}
+
+function loadExample20() {
+    _setDriverCapacity8();
+    const cluster1 = [
+        [20,30],[22,28],[19,31],[21,29],[23,32],[18,27],[20,33],[24,30],[21,28],[19,29]
+    ];
+    const cluster2 = [
+        [70,40],[72,42],[68,38],[71,39],[69,41],[73,37],[70,43],[67,40],[74,39],[68,42]
+    ];
+    const passagers_20 = cluster1.concat(cluster2);
+    state.passengers = passagers_20.map((coords, i) => ({
+        id: `P${i+1}`,
+        name: `P${i+1}`,
+        pickup: gridToGps(coords[0], coords[1]),
+        destination: gridToGps((coords[0] + 40) % 99, (coords[1] + 40) % 99)
+    }));
+    state.isSolved = false;
+    updateUI();
+    updateMarkers();
+    map.setView(state.driver.position, 11);
+}
+
+function loadExample50() {
+    _setDriverCapacity8();
+    const clusters_50 = [
+        [[10,20],[60,70]],
+        [[30,40],[80,60]],
+        [[50,60],[20,90]],
+        [[70,30],[40,50]],
+        [[90,10],[10,30]],
+    ];
+    let pid = 1;
+    const passagers_50 = [];
+    clusters_50.forEach(([dep, arr]) => {
+        for (let i = 0; i < 10; i++) {
+            passagers_50.push({
+                id: `P${pid}`,
+                name: `P${pid}`,
+                pickup: gridToGps(dep[0] + (i % 5), dep[1] - (i % 5)),
+                destination: gridToGps(arr[0] + (i % 10), arr[1] - (i % 10))
+            });
+            pid += 1;
+        }
+    });
+    state.passengers = passagers_50;
+    state.isSolved = false;
+    updateUI();
+    updateMarkers();
+    map.setView(state.driver.position, 10);
+}
+
+function loadExample100() {
+    _setDriverCapacity8();
+    const clusters_100 = [
+        [[10,10],[80,80]],[[20,30],[70,60]],[[30,50],[60,40]],[[40,70],[50,20]],[[50,90],[40,10]],
+        [[60,20],[30,30]],[[70,40],[20,50]],[[80,60],[10,70]],[[90,80],[15,85]],[[25,15],[65,75]]
+    ];
+    let pid = 1;
+    const passagers_100 = [];
+    clusters_100.forEach(([dep, arr]) => {
+        for (let i = 0; i < 10; i++) {
+            passagers_100.push({
+                id: `P${pid}`,
+                name: `P${pid}`,
+                pickup: gridToGps(dep[0] + (i % 4), dep[1] - (i % 4)),
+                destination: gridToGps(arr[0] + (i % 7), arr[1] - (i % 7))
+            });
+            pid += 1;
+        }
+    });
+    state.passengers = passagers_100;
+    state.isSolved = false;
+    updateUI();
+    updateMarkers();
+    map.setView(state.driver.position, 9);
+}
+
 // Check API connection status
 async function checkAPIStatus() {
     try {
@@ -759,6 +878,16 @@ function initEventListeners() {
         e.dataTransfer.setData('text/plain', 'driver');
         e.dataTransfer.effectAllowed = 'copy';
     });
+
+    // Example dataset buttons (predefined scenarios)
+    const ex10 = document.getElementById('example10Btn');
+    if (ex10) ex10.addEventListener('click', loadExample10);
+    const ex20 = document.getElementById('example20Btn');
+    if (ex20) ex20.addEventListener('click', loadExample20);
+    const ex50 = document.getElementById('example50Btn');
+    if (ex50) ex50.addEventListener('click', loadExample50);
+    const ex100 = document.getElementById('example100Btn');
+    if (ex100) ex100.addEventListener('click', loadExample100);
 }
 
 // Initialize application

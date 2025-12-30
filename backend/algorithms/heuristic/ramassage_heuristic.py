@@ -3,13 +3,13 @@ from models.Passager import Passager
 from utils.distance import distance_grille
 import math
 
-def ramassage_heuristic(passagers: List[Passager]) -> List[Dict]:
+def ramassage_heuristic(passagers: List[Passager], max_walk_distance: float = 100.0) -> List[Dict]:
     """
-    Détermine les points de ramassage avec approche heuristique basée sur la densité.
+    Détermine les points de ramassage avec contrainte de distance de marche maximale.
     
     Args:
         passagers: Liste des passagers du groupe optimal
-        seuil: Distance seuil pour regrouper les passagers (auto-calculé si None)
+        max_walk_distance: Distance maximale de marche autorisée (défaut: 100m)
     
     Returns:
         Liste des points de ramassage avec leurs passagers assignés
@@ -23,19 +23,19 @@ def ramassage_heuristic(passagers: List[Passager]) -> List[Dict]:
             "passagers": [passagers[0]]
         }]
     
-    # Auto-calcul du seuil avec approche heuristique
-    seuil = _calculer_seuil_heuristique(passagers)
+    # Utiliser la contrainte de marche comme seuil maximum
+    seuil = min(_calculer_seuil_heuristique(passagers), max_walk_distance)
     
     points_ramassage = []
     passagers_restants = passagers.copy()
     
     while passagers_restants:
-        # Trouver le passager avec le plus de voisins (densité maximale)
+        # Trouver le passager avec le plus de voisins dans le seuil contraint
         passager_central = _trouver_passager_central(passagers_restants, seuil)
         groupe_ramassage = [passager_central]
         passagers_restants.remove(passager_central)
         
-        # Ajouter tous les voisins dans le seuil
+        # Ajouter seulement les voisins dans la distance de marche autorisée
         voisins = []
         for passager in passagers_restants:
             dist = distance_grille(passager_central.pos_depart, passager.pos_depart)
@@ -46,7 +46,7 @@ def ramassage_heuristic(passagers: List[Passager]) -> List[Dict]:
         for voisin in voisins:
             passagers_restants.remove(voisin)
         
-        # Point de ramassage = position du passager central (heuristique)
+        # Point de ramassage = position du passager central
         point_ramassage = passager_central.pos_depart
         
         points_ramassage.append({

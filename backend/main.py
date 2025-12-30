@@ -73,8 +73,8 @@ class OptimizationRequest(BaseModel):
     driver: DriverInput
     passengers: List[PassengerInput] = Field(..., min_length=1)
     mode: str = Field("heuristic", pattern="^(exact|heuristic|genetic|tabou)$")
-    R_dest: float = Field(1, ge=1, le=100, description="Destination clustering radius")
-    R_depart: float = Field(1, ge=1, le=100, description="Pickup clustering radius")
+    R_dest: float = Field(5, ge=1, le=100, description="Destination clustering radius in meters")
+    R_depart: float = Field(3, ge=1, le=100, description="Pickup clustering radius in meters")
     # Genetic algorithm parameters (only used when mode='genetic')
     population_size: int = Field(100, ge=10, le=500, description="GA population size")
     generations: int = Field(200, ge=10, le=1000, description="GA generations")
@@ -200,8 +200,8 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
-def optimize_drop_off_points(passagers_groupe: List[Passager], method: str = "heuristic") -> List[Dict]:
-    """Create drop-off points by clustering passenger destinations"""
+def optimize_drop_off_points(passagers_groupe: List[Passager], method: str = "heuristic", max_walk_distance: float = 100.0) -> List[Dict]:
+    """Create drop-off points by clustering passenger destinations with walking constraint"""
     if not passagers_groupe:
         return []
     
@@ -215,7 +215,7 @@ def optimize_drop_off_points(passagers_groupe: List[Passager], method: str = "he
         for p2 in passagers_groupe[i+1:]
     ]
     
-    # Calculate threshold
+    # Calculate threshold with walking constraint
     if method == "exact":
         distances_sorted = sorted(distances)
         seuil = distances_sorted[len(distances_sorted) // 2] if distances else 10
@@ -223,6 +223,9 @@ def optimize_drop_off_points(passagers_groupe: List[Passager], method: str = "he
         seuil = statistics.quantiles(distances, n=4)[2] if len(distances) >= 4 else (
             max(distances) * 0.75 if distances else 10
         )
+    
+    # Apply walking distance constraint
+    seuil = min(seuil, max_walk_distance)
     
     # Cluster passengers
     points_arret = []
@@ -455,16 +458,16 @@ async def optimize_carpool(request: OptimizationRequest):
                 })
             
             # Extract dropoff points
-            points_arret = optimize_drop_off_points(groupe_optimal, method="heuristic")
+            points_arret = optimize_drop_off_points(groupe_optimal, method="heuristic", max_walk_distance=100.0)
         else:
             # Phase 3: Pickup points (for exact, heuristic, or genetic when capacity exceeded)
             if request.mode == "exact":
                 points_ramassage = ramassage_exact(groupe_optimal)
             else:
-                points_ramassage = ramassage_heuristic(groupe_optimal)
+                points_ramassage = ramassage_heuristic(groupe_optimal, max_walk_distance=100.0)
             
             # Phase 4: Drop-off points
-            points_arret = optimize_drop_off_points(groupe_optimal, method=request.mode if request.mode != "genetic" else "heuristic")
+            points_arret = optimize_drop_off_points(groupe_optimal, method=request.mode if request.mode != "genetic" else "heuristic", max_walk_distance=100.0)
         
         # Phase 5: TSP optimization
         if request.mode == "genetic" and use_genetic_route:
